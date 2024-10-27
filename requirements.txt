@@ -1,0 +1,8 @@
+streamlit
+networkx
+pyvis
+pandas
+numpy
+matplotlib
+sentence-transformers
+scikit-learn
