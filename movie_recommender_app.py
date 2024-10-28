@@ -47,29 +47,25 @@ def create_movie_title_with_year(row):
 def load_data():
     df = pd.read_csv('final_movie_dataset.csv')
     
-    # Add a new column with movie title and year
-    df['movie_title_with_year'] = df.apply(create_movie_title_with_year, axis=1)
+    # Load similarity matrix with error handling
+    similarity_matrix = np.load('movie_similarity_matrix.npy')
     
-    embeddings = np.load('reduced_movie_embeddings.npy')
-    with open('movie_dict.pkl', 'rb') as f:
-        combined_dict = pickle.load(f)
-    movie_dict = combined_dict['movie_data']
+    # Replace NaN values with zeros
+    similarity_matrix = np.nan_to_num(similarity_matrix, nan=0.0)
     
-    # Create a mapping from wikipedia_movie_id to movie_dict index
-    wiki_id_to_index = {row['wikipedia_movie_id']: str(i) for i, row in df.iterrows()}
+    # Add diagnostic information
+    st.write("Similarity Matrix Shape:", similarity_matrix.shape)
+    st.write("Similarity Matrix Range:", np.min(similarity_matrix), "to", np.max(similarity_matrix))
     
-    # Update movie_name_to_id to use the new movie_title_with_year
-    movie_name_to_id = df.set_index('movie_title_with_year')['wikipedia_movie_id'].to_dict()
+    # Verify the matrix has valid values
+    if np.all(np.isnan(similarity_matrix)):
+        st.error("Error: Similarity matrix contains all NaN values!")
+        similarity_matrix = np.zeros((len(df), len(df)))  # Fallback to zeros
     
-    return df, embeddings, movie_dict, movie_name_to_id, wiki_id_to_index
+    return df, similarity_matrix
 
 def create_movie_path_graph(df, similarity_matrix, start_idx, max_depth=2, max_connections=4):
     G = nx.Graph()
-    
-    # Add debugging information
-    st.write(f"Starting node index: {start_idx}")
-    st.write(f"Max depth: {max_depth}")
-    st.write(f"Max connections: {max_connections}")
     
     # Convert numpy types to native Python types
     def convert_to_native(value):
@@ -78,16 +74,18 @@ def create_movie_path_graph(df, similarity_matrix, start_idx, max_depth=2, max_c
             return int(value)
         elif isinstance(value, (np.float16, np.float32, np.float64)):
             return float(value)
+        elif np.isnan(value):
+            return 0.0
         return value
 
     def add_node_with_metadata(idx, depth):
         if not G.has_node(idx):
-            similarity = convert_to_native(similarity_matrix[start_idx, idx])
+            similarity = float(similarity_matrix[start_idx, idx])
+            st.write(f"Raw similarity value for {idx}: {similarity}")
             G.add_node(idx, 
                       title=df.loc[convert_to_native(idx), 'movie_title_with_year'],
                       similarity=similarity,
                       depth=convert_to_native(depth))
-            # Debug node addition
             st.write(f"Added node: {df.loc[convert_to_native(idx), 'movie_title_with_year']} (similarity: {similarity:.2f}, depth: {depth})")
     
     # Add start node
@@ -582,6 +580,8 @@ st.markdown(f"""
         <a href="https://www.linkedin.com/in/juan-franceschini-uy/" target="_blank" style="color: #666; text-decoration: underline; margin: 0 10px;">LinkedIn</a>
     </div>
     """, unsafe_allow_html=True)
+
+
 
 
 
