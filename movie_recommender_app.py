@@ -24,17 +24,41 @@ def load_data():
             axis=1
         )
         
-        # Load similarity matrix (already in correct shape)
-        similarity_matrix = np.load('movie_similarity_matrix.npy')
+        # Load similarity matrix with explicit shape
+        raw_matrix = np.load('movie_similarity_matrix.npy', allow_pickle=True)
+        st.write("Raw matrix info:")
+        st.write(f"- Size: {raw_matrix.size}")
+        st.write(f"- Shape: {raw_matrix.shape}")
+        
+        # Try to reshape if needed
+        if len(raw_matrix.shape) == 1:
+            n = len(df)
+            similarity_matrix = raw_matrix.reshape(n, n)
+        else:
+            similarity_matrix = raw_matrix
+            
+        st.write("Final matrix shape:", similarity_matrix.shape)
         
         return df, similarity_matrix
         
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
+        if 'raw_matrix' in locals():
+            st.write("Raw matrix details:")
+            st.write(f"- Size: {raw_matrix.size}")
+            st.write(f"- Shape: {raw_matrix.shape}")
+            st.write(f"- Type: {raw_matrix.dtype}")
         raise e
 
 # Load data
-df, similarity_matrix = load_data()
+try:
+    df, similarity_matrix = load_data()
+    st.write("Data loaded successfully!")
+    st.write(f"DataFrame shape: {df.shape}")
+    st.write(f"Similarity matrix shape: {similarity_matrix.shape}")
+except Exception as e:
+    st.error("Failed to load data")
+    st.stop()
 
 # Movie selection
 st.markdown("### 🎬 Select Your Starting Movie")
