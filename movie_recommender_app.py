@@ -63,16 +63,32 @@ def load_data():
     
     return df, embeddings, movie_dict, movie_name_to_id, wiki_id_to_index
 
-def create_movie_path_graph(df, similarity_matrix, selected_movie_index, max_depth=2, max_connections=5):
+def convert_to_native(value):
+    if isinstance(value, (np.int8, np.int16, np.int32, np.int64,
+                         np.uint8, np.uint16, np.uint32, np.uint64)):
+        return int(value)
+    elif isinstance(value, (np.float16, np.float32, np.float64)):
+        return float(value)
+    return value
+
+def create_movie_path_graph(df, similarity_matrix, start_idx, max_depth=2, max_connections=4):
     G = nx.Graph()
-    start_index = selected_movie_index
-    start_title = df.loc[start_index, 'movie_title_with_year']
-    G.add_node(start_index, title=start_title, depth=0, similarity=1.0)
+    
+    def add_node_with_metadata(idx, depth):
+        if not G.has_node(idx):
+            similarity = convert_to_native(similarity_matrix[start_idx, idx])
+            G.add_node(idx, 
+                      title=df.loc[convert_to_native(idx), 'movie_title'],
+                      similarity=similarity,
+                      depth=convert_to_native(depth))
+    
+    # Add start node
+    add_node_with_metadata(start_idx, 0)
     
     def add_connections(node, current_depth, parent_similarity=1.0):
         if current_depth >= max_depth:
             return
-        similarities = similarity_matrix[start_index]  # Always use similarities to the start movie
+        similarities = similarity_matrix[start_idx]  # Always use similarities to the start movie
         
         # Handle NaN values
         similarities = np.nan_to_num(similarities, nan=0.0)
@@ -90,13 +106,13 @@ def create_movie_path_graph(df, similarity_matrix, selected_movie_index, max_dep
             similarity = similarities[idx] * parent_similarity  # Multiply by parent's similarity
             if similarity <= 0:
                 continue
-            movie_title = df.loc[idx, 'movie_title_with_year']
+            movie_title = df.loc[convert_to_native(idx), 'movie_title']
             G.add_node(idx, title=movie_title, depth=current_depth+1, similarity=similarity)
             G.add_edge(node, idx, weight=similarity)
             if current_depth + 1 < max_depth:
                 add_connections(idx, current_depth+1, similarity)
     
-    add_connections(start_index, 0)
+    add_connections(start_idx, 0)
     return G
 
 def create_pyvis_network(graph, df, start_movie):
