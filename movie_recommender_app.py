@@ -49,15 +49,18 @@ def load_data():
         # Load the DataFrame
         df = pd.read_csv('final_movie_dataset.csv')
         
+        # Create movie title with year from release_date
+        df['year'] = pd.to_datetime(df['release_date'], format='mixed').dt.year
+        df['movie_title_with_year'] = df['movie_name'] + ' (' + df['year'].astype(str) + ')'
+        
         # Load and reshape the similarity matrix
         raw_matrix = np.load('movie_similarity_matrix.npy')
-        n = int(np.sqrt(raw_matrix.size))  # Calculate dimension
+        n = int(np.sqrt(raw_matrix.size))
         similarity_matrix = raw_matrix.reshape((n, n))
-        
-        # Convert to float64 to ensure compatibility
         similarity_matrix = similarity_matrix.astype(np.float64)
         
         # Debug information
+        st.write("Available columns:", df.columns.tolist())
         st.write(f"DataFrame shape: {df.shape}")
         st.write(f"Similarity matrix shape: {similarity_matrix.shape}")
         
@@ -65,8 +68,8 @@ def load_data():
         
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
-        if 'raw_matrix' in locals():
-            st.write(f"Raw matrix size: {raw_matrix.size}")
+        if 'df' in locals():
+            st.write("DataFrame columns:", df.columns.tolist())
         raise e
 
 def convert_to_native(value):
@@ -412,8 +415,12 @@ tab1, tab2 = st.tabs(["Movie Network", "How It Works"])
 with tab1:
     # Movie selection
     st.markdown("### 🎬 Select Your Starting Movie")
-    start_movie = st.selectbox('', df['movie_title_with_year'].tolist(), 
-                            help="Choose a movie to explore its thematic connections")
+    try:
+        start_movie = st.selectbox('', df['movie_title_with_year'].tolist(), 
+                                help="Choose a movie to explore its thematic connections")
+    except Exception as e:
+        st.error(f"Error creating movie list: {str(e)}")
+        st.write("Available columns:", df.columns.tolist())
 
     # Parameters and buttons
     col1, col2 = st.columns(2)
