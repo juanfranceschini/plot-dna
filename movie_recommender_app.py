@@ -4,6 +4,8 @@ import numpy as np
 import networkx as nx
 from pyvis.network import Network
 import os
+from sklearn.metrics.pairwise import cosine_similarity
+import pickle
 
 # Page config
 st.set_page_config(
@@ -12,43 +14,43 @@ st.set_page_config(
     layout="wide"
 )
 
-@st.cache_data
-def load_data():
-    try:
-        # Load DataFrame
-        df = pd.read_csv('final_movie_dataset.csv')
+st.title("Plot DNA 🧬 - Matrix Generation")
+
+try:
+    # 1. Load the movie embeddings
+    st.write("Loading embeddings...")
+    embeddings = np.load('reduced_movie_embeddings.npy')
+    st.write(f"Embeddings shape: {embeddings.shape}")
+    
+    # 2. Load the DataFrame
+    st.write("\nLoading DataFrame...")
+    df = pd.read_csv('final_movie_dataset.csv')
+    st.write(f"DataFrame shape: {df.shape}")
+    
+    # 3. Generate similarity matrix
+    st.write("\nGenerating similarity matrix...")
+    similarity_matrix = cosine_similarity(embeddings)
+    st.write(f"Generated matrix shape: {similarity_matrix.shape}")
+    
+    # 4. Save the new matrix
+    st.write("\nSaving matrix...")
+    np.save('movie_similarity_matrix.npy', similarity_matrix)
+    st.write("✅ Matrix saved successfully!")
+    
+    # 5. Verify the saved matrix
+    st.write("\nVerifying saved matrix...")
+    loaded_matrix = np.load('movie_similarity_matrix.npy')
+    st.write(f"Loaded matrix shape: {loaded_matrix.shape}")
+    
+    if loaded_matrix.shape == (len(df), len(df)):
+        st.success("Matrix dimensions match DataFrame!")
+    else:
+        st.error("Matrix dimensions don't match DataFrame!")
         
-        # Create movie title with year
-        df['movie_title_with_year'] = df.apply(
-            lambda x: f"{x['movie_name']} ({x['release_date']})", 
-            axis=1
-        )
-        
-        # Load similarity matrix with explicit shape
-        raw_matrix = np.load('movie_similarity_matrix.npy', allow_pickle=True)
-        st.write("Raw matrix info:")
-        st.write(f"- Size: {raw_matrix.size}")
-        st.write(f"- Shape: {raw_matrix.shape}")
-        
-        # Try to reshape if needed
-        if len(raw_matrix.shape) == 1:
-            n = len(df)
-            similarity_matrix = raw_matrix.reshape(n, n)
-        else:
-            similarity_matrix = raw_matrix
-            
-        st.write("Final matrix shape:", similarity_matrix.shape)
-        
-        return df, similarity_matrix
-        
-    except Exception as e:
-        st.error(f"Error loading data: {str(e)}")
-        if 'raw_matrix' in locals():
-            st.write("Raw matrix details:")
-            st.write(f"- Size: {raw_matrix.size}")
-            st.write(f"- Shape: {raw_matrix.shape}")
-            st.write(f"- Type: {raw_matrix.dtype}")
-        raise e
+except Exception as e:
+    st.error(f"Error: {str(e)}")
+    st.write("\nCurrent directory contents:")
+    st.write(os.listdir())
 
 # Load data
 try:
