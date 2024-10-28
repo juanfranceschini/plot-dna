@@ -45,23 +45,29 @@ def create_movie_title_with_year(row):
 
 @st.cache_data
 def load_data():
-    df = pd.read_csv('final_movie_dataset.csv')
-    
-    # Add a new column with movie title and year
-    df['movie_title_with_year'] = df.apply(create_movie_title_with_year, axis=1)
-    
-    embeddings = np.load('reduced_movie_embeddings.npy')
-    with open('movie_dict.pkl', 'rb') as f:
-        combined_dict = pickle.load(f)
-    movie_dict = combined_dict['movie_data']
-    
-    # Create a mapping from wikipedia_movie_id to movie_dict index
-    wiki_id_to_index = {row['wikipedia_movie_id']: str(i) for i, row in df.iterrows()}
-    
-    # Update movie_name_to_id to use the new movie_title_with_year
-    movie_name_to_id = df.set_index('movie_title_with_year')['wikipedia_movie_id'].to_dict()
-    
-    return df, embeddings, movie_dict, movie_name_to_id, wiki_id_to_index
+    try:
+        # Load the DataFrame
+        df = pd.read_csv('final_movie_dataset.csv')
+        
+        # Load and reshape the similarity matrix
+        raw_matrix = np.load('movie_similarity_matrix.npy')
+        n = int(np.sqrt(raw_matrix.size))  # Calculate dimension
+        similarity_matrix = raw_matrix.reshape((n, n))
+        
+        # Convert to float64 to ensure compatibility
+        similarity_matrix = similarity_matrix.astype(np.float64)
+        
+        # Debug information
+        st.write(f"DataFrame shape: {df.shape}")
+        st.write(f"Similarity matrix shape: {similarity_matrix.shape}")
+        
+        return df, similarity_matrix
+        
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+        if 'raw_matrix' in locals():
+            st.write(f"Raw matrix size: {raw_matrix.size}")
+        raise e
 
 def convert_to_native(value):
     if isinstance(value, (np.int8, np.int16, np.int32, np.int64,
@@ -294,7 +300,7 @@ def create_recommendation_card(movie_data, similarity):
     # Your existing recommendation card code with new styling
 
 # Load data
-df, embeddings, movie_dict, movie_name_to_id, wiki_id_to_index = load_data()
+df, similarity_matrix = load_data()
 
 # Load pre-computed similarity matrix
 similarity_matrix = np.load('movie_similarity_matrix.npy')
