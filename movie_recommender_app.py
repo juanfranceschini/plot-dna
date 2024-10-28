@@ -140,15 +140,13 @@ def create_pyvis_network(graph, df, start_movie):
     color_map = mcolors.LinearSegmentedColormap.from_list("custom_blue_purple", colors, N=n_bins)
     
     # Get all similarities
-    similarities = [data['similarity'] for _, data in graph.nodes(data=True)]
+    similarities = [float(data['similarity']) for _, data in graph.nodes(data=True)]
     min_sim, max_sim = min(similarities), max(similarities)
     
     # Add nodes
     for node in graph.nodes(data=True):
         node_id, node_data = node
-        similarity = node_data.get('similarity', 0.0)
-        if np.isnan(similarity):
-            similarity = 0.0
+        similarity = float(node_data.get('similarity', 0.0))
         
         norm_similarity = (similarity - min_sim) / (max_sim - min_sim)
         rgba_color = color_map(norm_similarity)
@@ -166,16 +164,14 @@ def create_pyvis_network(graph, df, start_movie):
                      borderColor='#000000')
     
     # Get all edge weights for normalization
-    edge_weights = [edge[2].get('weight', 0.0) for edge in graph.edges(data=True)]
+    edge_weights = [float(edge[2].get('weight', 0.0)) for edge in graph.edges(data=True)]
     min_weight = min(edge_weights)
     max_weight = max(edge_weights)
     
     # Add edges with gradient colors
     for edge in graph.edges(data=True):
-        weight = edge[2].get('weight', 0.0)
-        if np.isnan(weight):
-            weight = 0.0
-            
+        weight = float(edge[2].get('weight', 0.0))
+        
         # Normalize weight for color mapping
         norm_weight = (weight - min_weight) / (max_weight - min_weight)
         
