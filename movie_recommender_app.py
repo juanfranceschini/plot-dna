@@ -48,28 +48,34 @@ def load_data():
     try:
         # Load the DataFrame
         df = pd.read_csv('final_movie_dataset.csv')
+        st.write(f"Number of movies in DataFrame: {len(df)}")
         
-        # Create movie title with year from release_date
-        df['year'] = pd.to_datetime(df['release_date'], format='mixed').dt.year
-        df['movie_title_with_year'] = df['movie_name'] + ' (' + df['year'].astype(str) + ')'
-        
-        # Load and reshape the similarity matrix
+        # Load similarity matrix and show its info
         raw_matrix = np.load('movie_similarity_matrix.npy')
-        n = int(np.sqrt(raw_matrix.size))
-        similarity_matrix = raw_matrix.reshape((n, n))
-        similarity_matrix = similarity_matrix.astype(np.float64)
+        st.write(f"Raw matrix size: {raw_matrix.size}")
+        st.write(f"Raw matrix shape: {raw_matrix.shape}")
         
-        # Debug information
-        st.write("Available columns:", df.columns.tolist())
-        st.write(f"DataFrame shape: {df.shape}")
-        st.write(f"Similarity matrix shape: {similarity_matrix.shape}")
+        # Calculate the correct dimensions
+        n = int(np.sqrt(raw_matrix.size))
+        st.write(f"Calculated dimension (n): {n}")
+        
+        # Reshape only if dimensions match
+        if n * n == raw_matrix.size:
+            similarity_matrix = raw_matrix.reshape((n, n))
+            similarity_matrix = similarity_matrix.astype(np.float64)
+        else:
+            st.error(f"Matrix size {raw_matrix.size} is not a perfect square")
+            # Use the original shape if reshape isn't possible
+            similarity_matrix = raw_matrix
         
         return df, similarity_matrix
         
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
-        if 'df' in locals():
-            st.write("DataFrame columns:", df.columns.tolist())
+        if 'raw_matrix' in locals():
+            st.write("Raw matrix info:")
+            st.write(f"Size: {raw_matrix.size}")
+            st.write(f"Shape: {raw_matrix.shape}")
         raise e
 
 def convert_to_native(value):
