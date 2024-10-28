@@ -66,6 +66,11 @@ def load_data():
 def create_movie_path_graph(df, similarity_matrix, start_idx, max_depth=2, max_connections=4):
     G = nx.Graph()
     
+    # Add debugging information
+    st.write(f"Starting node index: {start_idx}")
+    st.write(f"Max depth: {max_depth}")
+    st.write(f"Max connections: {max_connections}")
+    
     # Convert numpy types to native Python types
     def convert_to_native(value):
         if isinstance(value, (np.int8, np.int16, np.int32, np.int64,
@@ -82,6 +87,8 @@ def create_movie_path_graph(df, similarity_matrix, start_idx, max_depth=2, max_c
                       title=df.loc[convert_to_native(idx), 'movie_title_with_year'],
                       similarity=similarity,
                       depth=convert_to_native(depth))
+            # Debug node addition
+            st.write(f"Added node: {df.loc[convert_to_native(idx), 'movie_title_with_year']} (similarity: {similarity:.2f}, depth: {depth})")
     
     # Add start node
     add_node_with_metadata(start_idx, 0)
@@ -102,6 +109,10 @@ def create_movie_path_graph(df, similarity_matrix, start_idx, max_depth=2, max_c
             similarities = similarity_matrix[current_idx]
             most_similar = np.argsort(similarities)[-max_connections-1:-1]
             
+            # Debug similar movies
+            st.write(f"\nFinding similar movies for index {current_idx}")
+            st.write(f"Number of similar movies found: {len(most_similar)}")
+            
             for similar_idx in most_similar:
                 similar_idx = convert_to_native(similar_idx)
                 if similar_idx not in explored_nodes:
@@ -114,51 +125,27 @@ def create_movie_path_graph(df, similarity_matrix, start_idx, max_depth=2, max_c
                     similarity = convert_to_native(similarities[similar_idx])
                     G.add_edge(current_idx, similar_idx, weight=similarity)
     
+    # Final graph statistics
+    st.write("\nFinal Graph Statistics:")
+    st.write(f"Number of nodes: {G.number_of_nodes()}")
+    st.write(f"Number of edges: {G.number_of_edges()}")
+    
     return G
 
 def create_pyvis_network(graph, df, start_movie):
     net = Network(height="600px", width="100%", bgcolor="#ffffff", font_color="#333333")
     
-    # Set up options with Bebas Neue font
-    net.set_options("""
-    {
-        "physics": {
-            "barnesHut": {
-                "gravitationalConstant": -2000,
-                "centralGravity": 0.3,
-                "springLength": 200,
-                "springStrength": 0.05,
-                "damping": 0.09,
-                "avoidOverlap": 0
-            },
-            "stabilization": {
-                "iterations": 100
-            }
-        },
-        "interaction": {
-            "navigationButtons": true,
-            "zoomView": true
-        }
-    }
-    """)
-    
-    # Create a custom color map (from medium blue to dark purple)
-    colors = [
-        '#ADD8E6',  # More saturated light blue
-        '#7CB9E8',  # Medium blue
-        '#6495ED',  # Cornflower blue
-        '#6A5ACD',  # Slate blue
-        '#483D8B',  # Dark slate blue
-        '#4B0082',  # Indigo
-        '#2E0854',  # Darker purple
-        '#1A0033'   # Darkest purple
-    ]
-    n_bins = len(colors)
-    color_map = mcolors.LinearSegmentedColormap.from_list("custom_blue_purple", colors, N=n_bins)
-    
-    # Get all similarities
+    # Get similarity range for color mapping
     similarities = [data['similarity'] for _, data in graph.nodes(data=True)]
-    min_sim, max_sim = min(similarities), max(similarities)
+    min_sim = min(similarities) if similarities else 0
+    max_sim = max(similarities) if similarities else 1
+    
+    # Prevent division by zero
+    if max_sim == min_sim:
+        max_sim = min_sim + 1  # Add 1 to prevent division by zero
+    
+    # Create color map
+    color_map = plt.cm.RdPu
     
     # Add nodes
     for node in graph.nodes(data=True):
@@ -167,11 +154,17 @@ def create_pyvis_network(graph, df, start_movie):
         if np.isnan(similarity):
             similarity = 0.0
         
-        norm_similarity = (similarity - min_sim) / (max_sim - min_sim)
+        # Prevent division by zero in normalization
+        if max_sim > min_sim:
+            norm_similarity = (similarity - min_sim) / (max_sim - min_sim)
+        else:
+            norm_similarity = 0.5  # Default to middle value if no range
+            
         rgba_color = color_map(norm_similarity)
         hex_color = mcolors.to_hex(rgba_color)
         
-        size = 15 + (norm_similarity * 25)
+        # Base size on similarity with safety check
+        size = 15 + (norm_similarity * 25) if not np.isnan(norm_similarity) else 15
         
         net.add_node(str(node_id), 
                      label=node_data['title'], 
@@ -182,29 +175,12 @@ def create_pyvis_network(graph, df, start_movie):
                      borderWidthSelected=4,
                      borderColor='#000000')
     
-    # Get all edge weights for normalization
-    edge_weights = [edge[2].get('weight', 0.0) for edge in graph.edges(data=True)]
-    min_weight = min(edge_weights)
-    max_weight = max(edge_weights)
-    
-    # Add edges with gradient colors
+    # Add edges with error handling
     for edge in graph.edges(data=True):
         weight = edge[2].get('weight', 0.0)
         if np.isnan(weight):
             weight = 0.0
-            
-        # Normalize weight for color mapping
-        norm_weight = (weight - min_weight) / (max_weight - min_weight)
-        
-        # Get color from same colormap used for nodes
-        rgba_color = color_map(norm_weight)
-        edge_color = mcolors.to_hex(rgba_color)
-        
-        net.add_edge(str(edge[0]), 
-                     str(edge[1]), 
-                     value=weight, 
-                     title=f"Similarity: {weight:.2f}", 
-                     color=edge_color)
+        net.add_edge(str(edge[0]), str(edge[1]), value=weight, title=f"Similarity: {weight:.2f}")
     
     # Save and modify the network
     net.save_graph("movie_network.html")
@@ -354,6 +330,10 @@ df, embeddings, movie_dict, movie_name_to_id, wiki_id_to_index = load_data()
 
 # Load pre-computed similarity matrix
 similarity_matrix = np.load('movie_similarity_matrix.npy')
+
+# Add this near where you load the data
+st.write("Similarity Matrix Shape:", similarity_matrix.shape)
+st.write("Similarity Matrix Range:", np.min(similarity_matrix), "to", np.max(similarity_matrix))
 
 # Custom CSS for an elegant, cohesive design
 st.markdown("""
@@ -602,4 +582,7 @@ st.markdown(f"""
         <a href="https://www.linkedin.com/in/juan-franceschini-uy/" target="_blank" style="color: #666; text-decoration: underline; margin: 0 10px;">LinkedIn</a>
     </div>
     """, unsafe_allow_html=True)
+
+
+
 
