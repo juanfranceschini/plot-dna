@@ -25,6 +25,8 @@ def load_data():
         st.write("DataFrame Info:")
         st.write("Shape:", df.shape)
         st.write("Columns:", df.columns.tolist())
+        st.write("\nFirst few rows of the DataFrame:")
+        st.write(df.head())
         
         # Load similarity matrix with reshape
         raw_matrix = np.load('movie_similarity_matrix.npy')
@@ -35,15 +37,10 @@ def load_data():
         similarity_matrix = raw_matrix.reshape((n, n))
         st.write("Reshaped similarity matrix:", similarity_matrix.shape)
         
-        # Verify the shapes match
-        if similarity_matrix.shape[0] != len(df):
-            st.error(f"Matrix shape ({similarity_matrix.shape[0]}) doesn't match DataFrame length ({len(df)})")
-            
         return df, similarity_matrix
         
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
-        st.write("Raw matrix size:", raw_matrix.size if 'raw_matrix' in locals() else "Not loaded")
         raise e
 
 # Load data
@@ -52,10 +49,21 @@ df, similarity_matrix = load_data()
 # Movie selection
 st.markdown("### 🎬 Select Your Starting Movie")
 try:
-    # Use the actual column name from your DataFrame
-    movie_titles = df['title'].astype(str) + ' (' + df['year'].astype(str) + ')'
+    # First, let's see what columns we actually have
+    st.write("Available columns:", df.columns.tolist())
+    
+    # Try to find the right column names
+    title_column = next(col for col in df.columns if 'title' in col.lower())
+    year_column = next(col for col in df.columns if 'year' in col.lower())
+    
+    st.write(f"Using columns: {title_column} and {year_column}")
+    
+    # Create movie titles
+    movie_titles = df[title_column].astype(str) + ' (' + df[year_column].astype(str) + ')'
     start_movie = st.selectbox('', movie_titles.tolist(), 
                               help="Choose a movie to explore its thematic connections")
 except Exception as e:
     st.error(f"Error creating movie list: {str(e)}")
     st.write("Available columns:", df.columns.tolist())
+    st.write("\nFirst few rows of data:")
+    st.write(df.head())
