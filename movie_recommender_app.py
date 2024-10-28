@@ -25,18 +25,25 @@ def load_data():
         st.write("DataFrame Info:")
         st.write("Shape:", df.shape)
         st.write("Columns:", df.columns.tolist())
-        st.write("\nFirst few rows:")
-        st.write(df.head())
         
-        # Load similarity matrix
-        similarity_matrix = np.load('movie_similarity_matrix.npy')
-        st.write("\nSimilarity Matrix Info:")
-        st.write("Shape:", similarity_matrix.shape)
+        # Load similarity matrix with reshape
+        raw_matrix = np.load('movie_similarity_matrix.npy')
+        st.write("\nRaw similarity matrix shape:", raw_matrix.shape)
         
+        # Calculate the correct dimensions
+        n = int(np.sqrt(raw_matrix.size))
+        similarity_matrix = raw_matrix.reshape((n, n))
+        st.write("Reshaped similarity matrix:", similarity_matrix.shape)
+        
+        # Verify the shapes match
+        if similarity_matrix.shape[0] != len(df):
+            st.error(f"Matrix shape ({similarity_matrix.shape[0]}) doesn't match DataFrame length ({len(df)})")
+            
         return df, similarity_matrix
         
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
+        st.write("Raw matrix size:", raw_matrix.size if 'raw_matrix' in locals() else "Not loaded")
         raise e
 
 # Load data
