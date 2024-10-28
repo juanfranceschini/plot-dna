@@ -1,58 +1,54 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import networkx as nx
+from pyvis.network import Network
 import os
 
-st.title("Plot DNA 🧬 - File Check")
+# Page config
+st.set_page_config(
+    page_title="Plot DNA 🧬",
+    page_icon="🧬",
+    layout="wide"
+)
 
-# Check all required files
-files_to_check = [
-    'final_movie_dataset.csv',
-    'movie_similarity_matrix.npy',
-    'movie_dict.pkl'
-]
-
-st.write("### Checking Required Files:")
-for file in files_to_check:
-    if os.path.exists(file):
-        st.write(f"✅ {file} found")
+@st.cache_data
+def load_data():
+    try:
+        # Load DataFrame
+        df = pd.read_csv('final_movie_dataset.csv')
         
-        try:
-            # Show file info
-            if file.endswith('.csv'):
-                df = pd.read_csv(file)
-                st.write(f"- Rows: {len(df)}")
-                st.write(f"- Columns: {df.columns.tolist()}")
-                st.write("- First few rows:")
-                st.write(df.head())
-                
-            elif file.endswith('.npy'):
-                raw_matrix = np.load(file, allow_pickle=True)
-                st.write(f"- Raw size: {raw_matrix.size}")
-                st.write(f"- Raw shape: {raw_matrix.shape}")
-                st.write(f"- Type: {raw_matrix.dtype}")
-                
-                # Try to calculate square dimensions
-                n = int(np.sqrt(raw_matrix.size))
-                st.write(f"- Square root of size: {n}")
-                if n * n == raw_matrix.size:
-                    st.write(f"- Can be reshaped to ({n}, {n})")
-                else:
-                    st.write("- Not a perfect square matrix")
-                
-            elif file.endswith('.pkl'):
-                import pickle
-                with open(file, 'rb') as f:
-                    data = pickle.load(f)
-                st.write(f"- Type: {type(data)}")
-                if isinstance(data, dict):
-                    st.write(f"- Number of entries: {len(data)}")
-                    
-        except Exception as e:
-            st.error(f"Error reading {file}: {str(e)}")
-            
-    else:
-        st.error(f"❌ {file} not found")
+        # Create movie title with year
+        df['movie_title_with_year'] = df.apply(
+            lambda x: f"{x['movie_name']} ({x['release_date']})", 
+            axis=1
+        )
+        
+        # Load similarity matrix (already in correct shape)
+        similarity_matrix = np.load('movie_similarity_matrix.npy')
+        
+        return df, similarity_matrix
+        
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+        raise e
 
-st.write("\n### Current Directory Contents:")
-st.write(os.listdir())
+# Load data
+df, similarity_matrix = load_data()
+
+# Movie selection
+st.markdown("### 🎬 Select Your Starting Movie")
+try:
+    movie_titles = df['movie_title_with_year'].tolist()
+    start_movie = st.selectbox('', movie_titles, 
+                              help="Choose a movie to explore its thematic connections")
+    
+    # Debug info
+    st.write("Data loaded successfully:")
+    st.write(f"- Number of movies: {len(df)}")
+    st.write(f"- Matrix shape: {similarity_matrix.shape}")
+    st.write(f"- Sample titles: {movie_titles[:5]}")
+    
+except Exception as e:
+    st.error(f"Error creating movie list: {str(e)}")
+    st.write("Available columns:", df.columns.tolist())
