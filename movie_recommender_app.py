@@ -118,94 +118,39 @@ def create_movie_path_graph(df, similarity_matrix, start_idx, max_depth=2, max_c
 def create_pyvis_network(graph, df, start_movie):
     net = Network(height="600px", width="100%", bgcolor="#ffffff", font_color="#333333")
     
-    # Set up options with Bebas Neue font
-    net.set_options("""
-    {
-        "physics": {
-            "barnesHut": {
-                "gravitationalConstant": -2000,
-                "centralGravity": 0.3,
-                "springLength": 200,
-                "springStrength": 0.05,
-                "damping": 0.09,
-                "avoidOverlap": 0
-            },
-            "stabilization": {
-                "iterations": 100
-            }
-        },
-        "interaction": {
-            "navigationButtons": true,
-            "zoomView": true
-        }
-    }
-    """)
+    # Convert all values to native Python types
+    for node_id in graph.nodes():
+        node_data = graph.nodes[node_id]
+        # Convert all node attributes to native Python types
+        for key, value in node_data.items():
+            if isinstance(value, (np.int8, np.int16, np.int32, np.int64,
+                                np.uint8, np.uint16, np.uint32, np.uint64)):
+                node_data[key] = int(value)
+            elif isinstance(value, (np.float16, np.float32, np.float64)):
+                node_data[key] = float(value)
     
-    # Create a custom color map (from medium blue to dark purple)
-    colors = [
-        '#ADD8E6',  # More saturated light blue
-        '#7CB9E8',  # Medium blue
-        '#6495ED',  # Cornflower blue
-        '#6A5ACD',  # Slate blue
-        '#483D8B',  # Dark slate blue
-        '#4B0082',  # Indigo
-        '#2E0854',  # Darker purple
-        '#1A0033'   # Darkest purple
-    ]
-    n_bins = len(colors)
-    color_map = mcolors.LinearSegmentedColormap.from_list("custom_blue_purple", colors, N=n_bins)
+    # Convert edge weights
+    for u, v, data in graph.edges(data=True):
+        if 'weight' in data:
+            data['weight'] = float(data['weight'])
     
-    # Get all similarities
-    similarities = [data['similarity'] for _, data in graph.nodes(data=True)]
-    min_sim, max_sim = min(similarities), max(similarities)
+    # Add nodes to network
+    for node_id in graph.nodes():
+        node_data = graph.nodes[node_id]
+        net.add_node(
+            node_id,
+            title=str(node_data['title']),
+            size=30 + 20 * float(node_data['similarity']),
+            color={"background": "#8B0000" if node_data['depth'] == 0 else "#4B0082",
+                  "border": "#000000"},
+            borderWidth=2
+        )
     
-    # Add nodes
-    for node in graph.nodes(data=True):
-        node_id, node_data = node
-        similarity = node_data.get('similarity', 0.0)
-        if np.isnan(similarity):
-            similarity = 0.0
-        
-        norm_similarity = (similarity - min_sim) / (max_sim - min_sim)
-        rgba_color = color_map(norm_similarity)
-        hex_color = mcolors.to_hex(rgba_color)
-        
-        size = 15 + (norm_similarity * 25)
-        
-        net.add_node(str(node_id), 
-                     label=node_data['title'], 
-                     title=f"{node_data['title']}|Similarity: {similarity:.2f}|Depth: {node_data['depth']}",
-                     color=hex_color,
-                     size=size,
-                     borderWidth=2,
-                     borderWidthSelected=4,
-                     borderColor='#000000')
+    # Add edges
+    for u, v, data in graph.edges(data=True):
+        net.add_edge(u, v, value=float(data['weight']), color={"color": "#2B0000", "opacity": 0.5})
     
-    # Get all edge weights for normalization
-    edge_weights = [edge[2].get('weight', 0.0) for edge in graph.edges(data=True)]
-    min_weight = min(edge_weights)
-    max_weight = max(edge_weights)
-    
-    # Add edges with gradient colors
-    for edge in graph.edges(data=True):
-        weight = edge[2].get('weight', 0.0)
-        if np.isnan(weight):
-            weight = 0.0
-            
-        # Normalize weight for color mapping
-        norm_weight = (weight - min_weight) / (max_weight - min_weight)
-        
-        # Get color from same colormap used for nodes
-        rgba_color = color_map(norm_weight)
-        edge_color = mcolors.to_hex(rgba_color)
-        
-        net.add_edge(str(edge[0]), 
-                     str(edge[1]), 
-                     value=weight, 
-                     title=f"Similarity: {weight:.2f}", 
-                     color=edge_color)
-    
-    # Save and modify the network
+    # Save and display
     net.save_graph("movie_network.html")
     
     # Modify the HTML to force Bebas Neue font
