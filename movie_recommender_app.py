@@ -55,16 +55,12 @@ except Exception as e:
 # Load data
 try:
     df, similarity_matrix = load_data()
-    st.write("Data loaded successfully!")
-    st.write(f"DataFrame shape: {df.shape}")
-    st.write(f"Similarity matrix shape: {similarity_matrix.shape}")
-except Exception as e:
-    st.error("Failed to load data")
-    st.stop()
-
-# Movie selection
-st.markdown("### 🎬 Select Your Starting Movie")
-try:
+    st.write("✅ Data loaded successfully!")
+    st.write(f"Number of movies: {len(df)}")
+    st.write(f"Matrix shape: {similarity_matrix.shape}")
+    
+    # Movie selection
+    st.markdown("### 🎬 Select Your Starting Movie")
     movie_titles = df['movie_title_with_year'].tolist()
     start_movie = st.selectbox('', movie_titles, 
                               help="Choose a movie to explore its thematic connections")
@@ -78,3 +74,28 @@ try:
 except Exception as e:
     st.error(f"Error creating movie list: {str(e)}")
     st.write("Available columns:", df.columns.tolist())
+
+@st.cache_data
+def load_data():
+    try:
+        # Load DataFrame
+        df = pd.read_csv('final_movie_dataset.csv')
+        
+        # Create movie title with year
+        df['movie_title_with_year'] = df.apply(
+            lambda x: f"{x['movie_name']} ({x['release_date']})", 
+            axis=1
+        )
+        
+        # Load similarity matrix
+        similarity_matrix = np.load('movie_similarity_matrix.npy')
+        
+        # Verify shapes
+        if similarity_matrix.shape != (len(df), len(df)):
+            raise ValueError(f"Matrix shape {similarity_matrix.shape} doesn't match DataFrame length {len(df)}")
+        
+        return df, similarity_matrix.astype(np.float32)  # Convert to float32 for memory efficiency
+        
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+        raise e
