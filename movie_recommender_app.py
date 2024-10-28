@@ -68,11 +68,10 @@ def create_movie_path_graph(df, similarity_matrix, start_idx, max_depth=2, max_c
     
     # Convert numpy types to native Python types
     def convert_to_native(value):
-        if isinstance(value, (np.int_, np.intc, np.intp, np.int8,
-            np.int16, np.int32, np.int64, np.uint8, np.uint16,
-            np.uint32, np.uint64)):
+        if isinstance(value, (np.int8, np.int16, np.int32, np.int64,
+                            np.uint8, np.uint16, np.uint32, np.uint64)):
             return int(value)
-        elif isinstance(value, (np.float_, np.float16, np.float32, np.float64)):
+        elif isinstance(value, (np.float16, np.float32, np.float64)):
             return float(value)
         return value
 
